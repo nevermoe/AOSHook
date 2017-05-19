@@ -15,15 +15,15 @@ extern int hook_arm1(int p0,int p1,int p2,int p3,int p4,int p5);
 
 int hook_thumb1(int p0,int p1,int p2,int p3,int p4,int p5)
 {
-	int (*orig_func)(int p0,int p1,int p2,int p3,int p4,int p5);
-	orig_func = (void*)eph1.orig;
+    int (*orig_func)(int p0,int p1,int p2,int p3,int p4,int p5);
+    orig_func = (void*)eph1.orig;
     
-	hook_unset_jump(&eph1);
+    hook_unset_jump(&eph1);
 
     LOGD("func 0x%x call begin.\n", (unsigned int)(orig_func - eph1.module_base));
 
-	int ret = orig_func(p0,p1,p2,p3,p4,p5);
-	hook_set_jump(&eph1);
+    int ret = orig_func(p0,p1,p2,p3,p4,p5);
+    hook_set_jump(&eph1);
 
     LOGD("func 0x%x call end.\n", (unsigned int)(orig_func - eph1.module_base));
 
@@ -33,30 +33,30 @@ int hook_thumb1(int p0,int p1,int p2,int p3,int p4,int p5)
 
 int recvfrom_thumb(int p0,int p1,int p2,int p3,int p4,int p5)
 {
-	int (*orig_func)(int p0,int p1,int p2,int p3,int p4,int p5);
-	orig_func = (void*)eph_recvfrom.orig;
+    int (*orig_func)(int p0,int p1,int p2,int p3,int p4,int p5);
+    orig_func = (void*)eph_recvfrom.orig;
     
-	hook_unset_jump(&eph_recvfrom);
+    hook_unset_jump(&eph_recvfrom);
 
     LOGD("Calling recvfrom\n");
 
-	int ret = orig_func(p0,p1,p2,p3,p4,p5);
-	hook_set_jump(&eph_recvfrom);
+    int ret = orig_func(p0,p1,p2,p3,p4,p5);
+    hook_set_jump(&eph_recvfrom);
 
     return ret;
 }
 
 int sendto_thumb(int p0,int p1,int p2,int p3,int p4,int p5)
 {
-	int (*orig_func)(int p0,int p1,int p2,int p3,int p4,int p5);
-	orig_func = (void*)eph_sendto.orig;
+    int (*orig_func)(int p0,int p1,int p2,int p3,int p4,int p5);
+    orig_func = (void*)eph_sendto.orig;
     
-	hook_unset_jump(&eph_sendto);
+    hook_unset_jump(&eph_sendto);
 
     LOGD("Calling sendto\n");
 
-	int ret = orig_func(p0,p1,p2,p3,p4,p5);
-	hook_set_jump(&eph_sendto);
+    int ret = orig_func(p0,p1,p2,p3,p4,p5);
+    hook_set_jump(&eph_sendto);
 
     return ret;
 }
