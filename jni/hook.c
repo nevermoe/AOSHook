@@ -92,8 +92,15 @@ static int _hook(struct hook_t *h, unsigned int addr, void *hook_thumb, void *ho
         h->jump[0] = 0xe59ff000; // LDR pc, [pc, #0]
         h->jump[1] = h->patch;
         h->jump[2] = h->patch;
-        for (i = 0; i < sizeof(h->store)/sizeof(unsigned int); i++)
+
+        h->store[0] = 0xe8bd5fff;   //pop {r0-r12,lr}
+        for (i = 1; i < sizeof(h->store)/sizeof(unsigned int); i++)
             h->store[i] = ((int*)h->orig)[i];
+
+        h->store[4] = 0xe59ff000;   //LDR pc, [pc, #0]
+        h->store[5] = h->orig + 12; //jump over first 3 instructions
+        h->store[6] = h->orig + 12;
+
         for (i = 0; i < sizeof(h->jump)/sizeof(unsigned int); i++)
             ((int*)h->orig)[i] = h->jump[i];
     }
@@ -131,9 +138,21 @@ static int _hook(struct hook_t *h, unsigned int addr, void *hook_thumb, void *ho
             memcpy(&h->jumpt[18], (unsigned char*)&h->patch, sizeof(unsigned int));
         }
         unsigned int orig = h->orig - 1; // sub 1 to get real address
-        for (i = 0; i < sizeof(h->storet); i++) {
+
+        h->storet[0] = 0x5fffe8bd; //pop {r0-r12,lr}
+        for (i = 1; i < sizeof(h->storet); i++) {
             h->storet[i] = ((unsigned char*)orig)[i];
         }
+        h->storet[i++] = 0xdf; //ldr pc, [pc, #0]
+        h->storet[i++] = 0xf8; 
+        h->storet[i++] = 0x00; 
+        h->storet[i++] = 0xf0; 
+
+        if ((h->storet + i) % 4 == 0) {
+            (unsigned int)(h->storet)[i] = (h->orig - 1 + 20)
+        }
+
+
         for (i = 0; i < sizeof(h->jumpt); i++) {
             ((unsigned char*)orig)[i] = h->jumpt[i];
         }
