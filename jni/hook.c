@@ -85,6 +85,7 @@ static int _hook(struct hook_t *h, unsigned int addr, void *hook_thumb, void *ho
 	
     //modify function entry point
     if (addr % 4 == 0) {
+        //ARM mode
         //LOGD("using ARM mode 0x%lx\n", (unsigned long)hook_arm);
         h->thumb = 0;
         h->patch = (unsigned int)hook_arm;
@@ -94,22 +95,23 @@ static int _hook(struct hook_t *h, unsigned int addr, void *hook_thumb, void *ho
         h->jump[2] = h->patch;
 
         h->store[0] = 0xe8bd5fff;   //pop {r0-r12,lr}
-        for (i = 1; i < sizeof(h->store)/sizeof(unsigned int); i++)
-            h->store[i] = ((int*)h->orig)[i];
+        for (i = 0; i < 3; i++)
+            h->store[i+1] = ((int*)h->orig)[i];
 
         h->store[4] = 0xe59ff000;   //LDR pc, [pc, #0]
         h->store[5] = h->orig + 12; //jump over first 3 instructions
         h->store[6] = h->orig + 12;
 
-        for (i = 0; i < sizeof(h->jump)/sizeof(unsigned int); i++)
+        for (i = 0; i < 3; i++)
             ((int*)h->orig)[i] = h->jump[i];
     }
     else {
+        //Thumb mode
+        //LOGD("using THUMB mode 0x%lx\n", (unsigned long)hook_thumb);
         if ((unsigned long int)hook_thumb % 4 == 0) {
             LOGD("warning hook is not thumb 0x%lx\n", (unsigned long)hook_thumb);
         }
         h->thumb = 1;
-        //LOGD("using THUMB mode 0x%lx\n", (unsigned long)hook_thumb);
         h->patch = (unsigned int)hook_thumb;
         h->orig = addr;
         h->jumpt[1] = 0xb4;
@@ -129,30 +131,34 @@ static int _hook(struct hook_t *h, unsigned int addr, void *hook_thumb, void *ho
         h->jumpt[15] = 0x46;
         h->jumpt[14] = 0xaf; // mov pc, r5 ; just to pad to 4 byte boundary
         //note in thumb mode, the pc always pre-fetch 4 bytes only after one 4 bytes are all consumed.
-        if ((h->orig - 1) % 4 == 0) {
-            //if orig addr is aligned to 4 byte, then 'add r5, pc, #12' makes r5 points to offset 16
+        if ((h->orig - 1 + 2) % 4 == 2) {
+            //if addr of 'add r5, pc, #12' is aligned to 2 byte, then 'add r5, pc, #12' makes r5 points to offset 16
             memcpy(&h->jumpt[16], (unsigned char*)&h->patch, sizeof(unsigned int));
         }
         else {
-            //if orig addr is aligned to 2 byte, then 'add r5, pc, #12' makes r5 points to offset 18
+            //if orig addr is aligned to 4 byte, then 'add r5, pc, #12' makes r5 points to offset 18
             memcpy(&h->jumpt[18], (unsigned char*)&h->patch, sizeof(unsigned int));
         }
         unsigned int orig = h->orig - 1; // sub 1 to get real address
 
-        h->storet[0] = 0x5fffe8bd; //pop {r0-r12,lr}
-        for (i = 1; i < sizeof(h->storet); i++) {
-            h->storet[i] = ((unsigned char*)orig)[i];
+        (unsigned int)h->storet[0] = 0x5fffe8bd; //pop {r0-r12,lr}
+        for (i = 0; i < 22; i++) {
+            h->storet[i+4] = ((unsigned char*)orig)[i];
         }
-        h->storet[i++] = 0xdf; //ldr pc, [pc, #0]
-        h->storet[i++] = 0xf8; 
-        h->storet[i++] = 0x00; 
-        h->storet[i++] = 0xf0; 
+        (unsigned int)h->storet[26] = 0xf004f8df;   //ldr pc, [pc, #4]
 
-        if ((h->storet + i) % 4 == 0) {
-            (unsigned int)(h->storet)[i] = (h->orig - 1 + 20)
+        if ((h->storet + 26) % 4 == 2) {
+            (unsigned int)(h->storet)[32] = (h->orig - 1 + 22);
         }
+        else {
+            (unsigned int)(h->storet)[34] = (h->orig - 1 + 22);
+        }
+        
+        //TODO: check if the last 2 bytes in the overwritten 22 bytes contains 32 bit thumb code
+        //https://stackoverflow.com/questions/28860250/how-to-determine-if-a-word4-bytes-is-a-16-bit-instruction-or-32-bit-instructio
 
 
+        //FIXME
         for (i = 0; i < sizeof(h->jumpt); i++) {
             ((unsigned char*)orig)[i] = h->jumpt[i];
         }

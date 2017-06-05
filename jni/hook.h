@@ -20,7 +20,7 @@ struct hook_t {
     unsigned int jump[3];
     unsigned int store[7];
     unsigned char jumpt[22];
-    unsigned char storet[22];
+    unsigned char storet[38];
     unsigned int orig;
     unsigned int patch;
     unsigned char thumb;
