@@ -130,8 +130,10 @@ static int _hook(struct hook_t *h, unsigned int addr, void *hook_thumb, void *ho
         h->jumpt[12] = 0x20; // pop {r5, pc}
         h->jumpt[15] = 0x46;
         h->jumpt[14] = 0xaf; // mov pc, r5 ; just to pad to 4 byte boundary
+
+        unsigned int orig = h->orig - 1; // sub 1 to get real address
         //note in thumb mode, the pc always pre-fetch 4 bytes only after one 4 bytes are all consumed.
-        if ((h->orig - 1 + 2) % 4 == 2) {
+        if ((orig + 2) % 4 == 2) {
             //if addr of 'add r5, pc, #12' is aligned to 2 byte, then 'add r5, pc, #12' makes r5 points to offset 16
             memcpy(&h->jumpt[16], (unsigned char*)&h->patch, sizeof(unsigned int));
         }
@@ -139,32 +141,45 @@ static int _hook(struct hook_t *h, unsigned int addr, void *hook_thumb, void *ho
             //if orig addr is aligned to 4 byte, then 'add r5, pc, #12' makes r5 points to offset 18
             memcpy(&h->jumpt[18], (unsigned char*)&h->patch, sizeof(unsigned int));
         }
-        unsigned int orig = h->orig - 1; // sub 1 to get real address
 
-        (unsigned int)h->storet[0] = 0x5fffe8bd; //pop {r0-r12,lr}
-        for (i = 0; i < 22; i++) {
-            h->storet[i+4] = ((unsigned char*)orig)[i];
+        ((unsigned int*)h->storet)[0] = 0x5fffe8bd; //pop {r0-r12,lr}
+
+        for (i = 0; ; ) {
+            //check if the last 2 bytes in the overwritten 22 bytes contains 32 bit thumb code
+            //https://stackoverflow.com/questions/28860250/how-to-determine-if-a-word4-bytes-is-a-16-bit-instruction-or-32-bit-instructio
+            bits_15_11 = ((unsigned char*)orig)[i+1] & 0xf8; //0xf8 == 0b 1111 1000
+            if( bits_15_11 == 0xe8 || bits_15_11 == 0xf0 || bits_15_11 == 0xf8) {
+                //is 32-bit thumb instruction
+                h->storet[i+4] = ((unsigned char*)orig)[i]; i++;
+                h->storet[i+4] = ((unsigned char*)orig)[i]; i++;
+                h->storet[i+4] = ((unsigned char*)orig)[i]; i++;
+                h->storet[i+4] = ((unsigned char*)orig)[i]; i++;
+            }
+            else {
+                //is 16-bit thumb instruction
+                h->storet[i+4] = ((unsigned char*)orig)[i]; i++;
+                h->storet[i+4] = ((unsigned char*)orig)[i]; i++;
+            }
+            if(i >= 22)
+                break;
         }
-        (unsigned int)h->storet[26] = 0xf004f8df;   //ldr pc, [pc, #4]
 
-        if ((h->storet + 26) % 4 == 2) {
-            (unsigned int)(h->storet)[32] = (h->orig - 1 + 22);
+        //now i = 22 or 24
+        ((unsigned int*)h->storet)[4+i] = 0xf004f8df;   //ldr pc, [pc, #4]
+
+        if ((h->storet + i + 4) % 4 == 2) {
+            ((unsigned int*)(h->storet))[i+4/*[pc,#4]*/+2/*prefetch*/] = (orig + i);
         }
         else {
-            (unsigned int)(h->storet)[34] = (h->orig - 1 + 22);
+            ((unsigned int*)(h->storet))[i+4/*[pc,#4]*/+4/*prefetch*/] = (orig + i);
         }
         
-        //TODO: check if the last 2 bytes in the overwritten 22 bytes contains 32 bit thumb code
-        //https://stackoverflow.com/questions/28860250/how-to-determine-if-a-word4-bytes-is-a-16-bit-instruction-or-32-bit-instructio
-
-
-        //FIXME
         for (i = 0; i < sizeof(h->jumpt); i++) {
             ((unsigned char*)orig)[i] = h->jumpt[i];
         }
     }
 
-    //cacheflush	
+    //FIXME: cacheflush	
     hook_cacheflush((unsigned int)h->orig, (unsigned int)h->orig+sizeof(h->jumpt));
 
 	return 0;

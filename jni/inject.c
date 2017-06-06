@@ -13,9 +13,15 @@ static struct hook_t eph1;
 extern int hook_arm1(int p0,int p1,int p2,int p3,int p4,int p5);
 
 
-int hook_thumb1(int p0,int p1,int p2,int p3,int p4,int p5)
+__attribute__ ((naked)) int hook_thumb1(int p0,int p1,int p2,int p3,int p4,int p5)
 {
-    int (*orig_func)(int p0,int p1,int p2,int p3,int p4,int p5);
+    //FIXME
+    __asm __volatile (
+        "push {r0-12,lr}\n"
+        "blx "
+        "blx %0\n"
+        : "g" (eph1.storet)
+    );
     orig_func = (void*)eph1.orig;
     
     hook_unset_jump(&eph1);
