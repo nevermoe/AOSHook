@@ -2,69 +2,46 @@
 #include <android/log.h>
 
 
-static struct hook_t eph_sendto;
-static struct hook_t eph_recvfrom;
-extern int sendto_arm(int p0,int p1,int p2,int p3,int p4,int p5);
-extern int recvfrom_arm(int p0,int p1,int p2,int p3,int p4,int p5);
-
-
-static struct hook_t eph1;
+static struct hook_t eph;
     
-extern int hook_arm1(int p0,int p1,int p2,int p3,int p4,int p5);
+extern int hook_arm(int p0,int p1,int p2,int p3,int p4,int p5);
 
-
-__attribute__ ((naked)) int hook_thumb1(int p0,int p1,int p2,int p3,int p4,int p5)
+__attribute__ ((naked)) int hook_thumb(int p0,int p1,int p2,int p3,int p4,int p5)
 {
-    //FIXME
-    __asm __volatile (
-        "push {r0-12,lr}\n"
-        "blx "
-        "blx %0\n"
-        : "g" (eph1.storet)
+    /*
+    __asm __volatile(
+        //save r5 to label save_r5
+        "push   {r4}\n"
+        "ldr    r4, =save_r5\n"
+        "str    r5, [r4]\n"
+
+        //save lr to label lr
+        //note hi registers cannot use str or ldr instruction directly
+        "ldr    r4, =save_lr\n"
+        "mov    r5, lr\n"
+        "str    r5, [r4]\n"
+
+        //restore r4
+        "pop    {r4}\n"
+
+        "push   {lr}\n"
+        //"ldr.w   lr, [sp], #4\n"
+        "pop    {r0-r4}\n"
+        //"ldr    pc, [pc, #4]\n"
+        "blx    print_log\n"
+        //"pop    {lr}\n"
+        "add    sp, sp, #4\n"
+        "push   {r0}\n"
+        //"ldr    r0, [sp, #-4]\n"
+
+        "save_r5:\n"
+             ".word 0x0\n"
+         "save_lr:\n"
+             ".word 0x0\n"
     );
-    orig_func = (void*)eph1.orig;
-    
-    hook_unset_jump(&eph1);
+    */
 
-    LOGD("func 0x%x call begin.\n", (unsigned int)(orig_func - eph1.module_base));
-
-    int ret = orig_func(p0,p1,p2,p3,p4,p5);
-    hook_set_jump(&eph1);
-
-    LOGD("func 0x%x call end.\n", (unsigned int)(orig_func - eph1.module_base));
-
-    return ret;
-}
-    
-
-int recvfrom_thumb(int p0,int p1,int p2,int p3,int p4,int p5)
-{
-    int (*orig_func)(int p0,int p1,int p2,int p3,int p4,int p5);
-    orig_func = (void*)eph_recvfrom.orig;
-    
-    hook_unset_jump(&eph_recvfrom);
-
-    LOGD("Calling recvfrom\n");
-
-    int ret = orig_func(p0,p1,p2,p3,p4,p5);
-    hook_set_jump(&eph_recvfrom);
-
-    return ret;
-}
-
-int sendto_thumb(int p0,int p1,int p2,int p3,int p4,int p5)
-{
-    int (*orig_func)(int p0,int p1,int p2,int p3,int p4,int p5);
-    orig_func = (void*)eph_sendto.orig;
-    
-    hook_unset_jump(&eph_sendto);
-
-    LOGD("Calling sendto\n");
-
-    int ret = orig_func(p0,p1,p2,p3,p4,p5);
-    hook_set_jump(&eph_sendto);
-
-    return ret;
+    return 1;
 }
 
 int init_func(char * str){
@@ -72,13 +49,12 @@ int init_func(char * str){
 
     long target_addr = 0;
 
-    
     //if target func is thumb, be sure to add 0x1 to the func addr.
-    target_addr = 0x2ca43c;
-    hook_by_addr(&eph1, "libc.so", target_addr, hook_thumb1, hook_arm1);
+    //target_addr = 0x2ca43c;
+    target_addr = 0x22138; //strcmp;
+    hook_by_addr(&eph, "libc.so", target_addr, hook_thumb, hook_arm);
     
-    hook_by_name(&eph_sendto, "libc.so", "sendto", sendto_thumb, sendto_arm);
-    hook_by_name(&eph_recvfrom, "libc.so", "recvfrom", recvfrom_thumb, recvfrom_arm);
+    //hook_by_name(&eph_sendto, "libc.so", "sendto", sendto_thumb, sendto_arm);
 
     return 0;
 }

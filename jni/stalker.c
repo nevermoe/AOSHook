@@ -183,7 +183,7 @@ int inject_so(pid_t pid,char* so_path, char* function_name,char* parameter)
     */
 
     //dlopen
-    printf("save so_path = %s to map_base = %p\n", so_path, (void*)map_base);
+    //printf("save so_path = %s to map_base = %p\n", so_path, (void*)map_base);
     putdata(pid, map_base, so_path, strlen(so_path) + 1);
 
     parameters[0] = map_base;
@@ -194,7 +194,7 @@ int inject_so(pid_t pid,char* so_path, char* function_name,char* parameter)
     
     long handle = regs.ARM_r0;
     
-    printf("handle = %p\n",(void*) handle);
+    //printf("handle = %p\n",(void*) handle);
 
     /*
     //dlerror
@@ -207,7 +207,7 @@ int inject_so(pid_t pid,char* so_path, char* function_name,char* parameter)
     */
 
     //dlsym
-    printf("save function_name = %s to map_base = %p\n", function_name, (void*)map_base);
+    //printf("save function_name = %s to map_base = %p\n", function_name, (void*)map_base);
     putdata(pid, map_base, function_name, strlen(function_name) + 1);
 
     parameters[0] = handle;
@@ -218,10 +218,10 @@ int inject_so(pid_t pid,char* so_path, char* function_name,char* parameter)
     
     long function_ptr = regs.ARM_r0;
 
-    printf("function_ptr = %p\n", (void*)function_ptr);
+    printf("init_func addr = %p\n", (void*)function_ptr);
 
     //function_call
-    printf("save parameter = %s to map_base = %p\n", parameter, (void*)map_base);
+    //printf("save parameter = %s to map_base = %p\n", parameter, (void*)map_base);
     putdata(pid, map_base, parameter, strlen(parameter) + 1);
 
     parameters[0] = map_base;
@@ -264,7 +264,6 @@ int main(int argc, char *argv[])
     inject_so(pid, so_path, init_func, parameter);
 
 
-    /*
     //for debug
     wait(&status);
     struct pt_regs regs;
@@ -276,9 +275,10 @@ int main(int argc, char *argv[])
     for(i = 0 ; i < 5 ; i++){
         printf("%x\n", buf[i]);
     }
-    */
     
-    ptrace(PTRACE_DETACH, pid, NULL, 0);
+    while(1) {
+    }
+    //ptrace(PTRACE_DETACH, pid, NULL, 0);
     
     return 0;
 }

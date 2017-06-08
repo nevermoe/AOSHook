@@ -86,21 +86,28 @@ static int _hook(struct hook_t *h, unsigned int addr, void *hook_thumb, void *ho
     //modify function entry point
     if (addr % 4 == 0) {
         //ARM mode
-        //LOGD("using ARM mode 0x%lx\n", (unsigned long)hook_arm);
+        LOGD("using ARM mode 0x%lx\n", (unsigned long)hook_arm);
         h->thumb = 0;
         h->patch = (unsigned int)hook_arm;
         h->orig = addr;
+        h->jump[0] = 0xe52d0004; //push {r0} (push hook_t to stack)
+        h->jump[1] = 0xe51ff004; // LDR pc, [pc, #-4]
+        h->jump[2] = h->patch;
+        /*
         h->jump[0] = 0xe59ff000; // LDR pc, [pc, #0]
         h->jump[1] = h->patch;
         h->jump[2] = h->patch;
-
         h->store[0] = 0xe8bd5fff;   //pop {r0-r12,lr}
-        for (i = 0; i < 3; i++)
-            h->store[i+1] = ((int*)h->orig)[i];
+        */
 
-        h->store[4] = 0xe59ff000;   //LDR pc, [pc, #0]
-        h->store[5] = h->orig + 12; //jump over first 3 instructions
-        h->store[6] = h->orig + 12;
+        for (i = 0; i < 3; i++)
+            h->store[i] = ((int*)h->orig)[i];
+
+        h->store[3] = 0xe51ff004;   //LDR pc, [pc, #-4]
+        h->store[4] = h->orig + 12; //jump over first 3 instructions
+
+        mprotect((void*)h->store, sizeof(h->store), 
+                PROT_READ|PROT_WRITE|PROT_EXEC);
 
         for (i = 0; i < 3; i++)
             ((int*)h->orig)[i] = h->jump[i];
@@ -114,6 +121,7 @@ static int _hook(struct hook_t *h, unsigned int addr, void *hook_thumb, void *ho
         h->thumb = 1;
         h->patch = (unsigned int)hook_thumb;
         h->orig = addr;
+        /*
         h->jumpt[1] = 0xb4;
         h->jumpt[0] = 0x60; // push {r5,r6}
         h->jumpt[3] = 0xa5;
@@ -130,6 +138,23 @@ static int _hook(struct hook_t *h, unsigned int addr, void *hook_thumb, void *ho
         h->jumpt[12] = 0x20; // pop {r5, pc}
         h->jumpt[15] = 0x46;
         h->jumpt[14] = 0xaf; // mov pc, r5 ; just to pad to 4 byte boundary
+        */
+        h->jumpt[1] = 0xb4;
+        h->jumpt[0] = 0x01; // push {r0}
+        h->jumpt[3] = 0xb4;
+        h->jumpt[2] = 0x60; // push {r5,r6}
+        h->jumpt[5] = 0xa5;
+        h->jumpt[4] = 0x03; // add r5, pc, #12
+        h->jumpt[7] = 0x68;
+        h->jumpt[6] = 0x2d; // ldr r5, [r5]
+        h->jumpt[9] = 0xb0;
+        h->jumpt[8] = 0x02; // add sp,sp,#8
+        h->jumpt[11] = 0xb4;
+        h->jumpt[10] = 0x20; // push {r5}
+        h->jumpt[13] = 0xb0;
+        h->jumpt[12] = 0x81; // sub sp,sp,#4
+        h->jumpt[15] = 0xbd;
+        h->jumpt[14] = 0x20; // pop {r5, pc}
 
         unsigned int orig = h->orig - 1; // sub 1 to get real address
         //note in thumb mode, the pc always pre-fetch 4 bytes only after one 4 bytes are all consumed.
@@ -147,7 +172,7 @@ static int _hook(struct hook_t *h, unsigned int addr, void *hook_thumb, void *ho
         for (i = 0; ; ) {
             //check if the last 2 bytes in the overwritten 22 bytes contains 32 bit thumb code
             //https://stackoverflow.com/questions/28860250/how-to-determine-if-a-word4-bytes-is-a-16-bit-instruction-or-32-bit-instructio
-            bits_15_11 = ((unsigned char*)orig)[i+1] & 0xf8; //0xf8 == 0b 1111 1000
+            unsigned char bits_15_11 = ((unsigned char*)orig)[i+1] & 0xf8; //0xf8 == 0b 1111 1000
             if( bits_15_11 == 0xe8 || bits_15_11 == 0xf0 || bits_15_11 == 0xf8) {
                 //is 32-bit thumb instruction
                 h->storet[i+4] = ((unsigned char*)orig)[i]; i++;
@@ -167,7 +192,7 @@ static int _hook(struct hook_t *h, unsigned int addr, void *hook_thumb, void *ho
         //now i = 22 or 24
         ((unsigned int*)h->storet)[4+i] = 0xf004f8df;   //ldr pc, [pc, #4]
 
-        if ((h->storet + i + 4) % 4 == 2) {
+        if ((unsigned int)(h->storet + i + 4) % 4 == 2) {
             ((unsigned int*)(h->storet))[i+4/*[pc,#4]*/+2/*prefetch*/] = (orig + i);
         }
         else {

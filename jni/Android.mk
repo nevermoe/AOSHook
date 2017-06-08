@@ -27,6 +27,7 @@ include $(BUILD_EXECUTABLE)
 ###########################################################
 
 include $(CLEAR_VARS)
+LOCAL_DISABLE_FATAL_LINKER_WARNINGS := true
 LOCAL_MODULE    := inject
 LOCAL_SRC_FILES := inject.c inject_arm.c.arm
 LOCAL_LDLIBS := -llog 
