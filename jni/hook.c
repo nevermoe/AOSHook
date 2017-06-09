@@ -83,6 +83,7 @@ static int _hook(struct hook_t *h, unsigned int addr, void *hook_thumb, void *ho
 {
 	int i;
 	
+    LOGD("real eph addr: 0x%x\n", h);
     //modify function entry point
     if (addr % 4 == 0) {
         //ARM mode
@@ -90,9 +91,15 @@ static int _hook(struct hook_t *h, unsigned int addr, void *hook_thumb, void *ho
         h->thumb = 0;
         h->patch = (unsigned int)hook_arm;
         h->orig = addr;
-        h->jump[0] = 0xe52d0004; //push {r0} (push hook_t to stack)
-        h->jump[1] = 0xe51ff004; // LDR pc, [pc, #-4]
-        h->jump[2] = h->patch;
+        //h->jump[0] = 0xe1a00000; //mov r0, r0 (nop)
+        h->jump[0] = 0xe50d0008; //str r0, [sp, #-8]
+        h->jump[1] = 0xe59f000c; // LDR r0, [pc, #12]
+        h->jump[2] = 0xe52d0004; // push {r0}
+        h->jump[3] = 0xe51d0004; // ldr r0, [sp, #-4]
+        //h->jump[3] = 0xe1a00000; //mov r0, r0 (nop)
+        h->jump[4] = 0xe51ff004; // LDR pc, [pc, #-4]
+        h->jump[5] = h->patch;
+        h->jump[6] = (unsigned int)h;
         /*
         h->jump[0] = 0xe59ff000; // LDR pc, [pc, #0]
         h->jump[1] = h->patch;
@@ -109,7 +116,7 @@ static int _hook(struct hook_t *h, unsigned int addr, void *hook_thumb, void *ho
         mprotect((void*)h->store, sizeof(h->store), 
                 PROT_READ|PROT_WRITE|PROT_EXEC);
 
-        for (i = 0; i < 3; i++)
+        for (i = 0; i < /*sizeof(h->jump)/sizeof(unsigned int)*/7; i++)
             ((int*)h->orig)[i] = h->jump[i];
     }
     else {

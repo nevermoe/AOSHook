@@ -18,11 +18,15 @@ void test2(char* str)
 
 int main()
 {
+    volatile int i = 0;
+    scanf("%d", &i);
     while(1)
     {
         test2("null");
         count++;
-        sleep(1);
+        if (i == 1) {
+            sleep(1);
+        }
     }    
     return 0;
 }
