@@ -96,7 +96,6 @@ static int _hook(struct hook_t *h, unsigned int addr, void *hook_thumb, void *ho
         h->jump[1] = 0xe59f000c; // LDR r0, [pc, #12]
         h->jump[2] = 0xe52d0004; // push {r0}
         h->jump[3] = 0xe51d0004; // ldr r0, [sp, #-4]
-        //h->jump[3] = 0xe1a00000; //mov r0, r0 (nop)
         h->jump[4] = 0xe51ff004; // LDR pc, [pc, #-4]
         h->jump[5] = h->patch;
         h->jump[6] = (unsigned int)h;
@@ -107,17 +106,17 @@ static int _hook(struct hook_t *h, unsigned int addr, void *hook_thumb, void *ho
         h->store[0] = 0xe8bd5fff;   //pop {r0-r12,lr}
         */
 
-        for (i = 0; i < 3; i++)
+        for (i = 0; i < 7; i++)
             h->store[i] = ((int*)h->orig)[i];
 
-        h->store[3] = 0xe51ff004;   //LDR pc, [pc, #-4]
-        h->store[4] = h->orig + 12; //jump over first 3 instructions
+        h->store[7] = 0xe51ff004;   //LDR pc, [pc, #-4]
+        h->store[8] = h->orig + 28; //jump over first 7 instructions
 
         mprotect((void*)h->store, sizeof(h->store), 
                 PROT_READ|PROT_WRITE|PROT_EXEC);
 
         for (i = 0; i < /*sizeof(h->jump)/sizeof(unsigned int)*/7; i++)
-            ((int*)h->orig)[i] = h->jump[i];
+            ((unsigned int*)h->orig)[i] = h->jump[i];
     }
     else {
         //Thumb mode

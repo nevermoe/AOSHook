@@ -51,7 +51,8 @@ int init_func(char * str){
 
     //if target func is thumb, be sure to add 0x1 to the func addr.
     //target_addr = 0x22138; //strcmp;
-    target_addr = 0x20e78; //nanosleep;
+    //target_addr = 0x20e78; //nanosleep;
+    target_addr = 0x20afc; //lstat;
     hook_by_addr(&eph, "libc.so", target_addr, hook_thumb, hook_arm);
     
     //hook_by_name(&eph_sendto, "libc.so", "sendto", sendto_thumb, sendto_arm);

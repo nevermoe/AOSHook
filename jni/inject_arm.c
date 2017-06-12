@@ -6,14 +6,15 @@ void pre_hook_arm(int p0, int p1, int p2, int p3, int r0, int r1, int r2, int r3
     LOGD("pre_hook_arm\n");
     struct hook_t* ctx = (struct hook_t*)eph;
     LOGD("eph addr: 0x%x    0x%x    0x%x    0x%x    0x%x    0x%x    0x%x    0x%x    0x%x    0x%x\n", p0, p1, p2, p3, r0, r1, r2, r3, lr, eph);
-    //LOGD("func 0x%x call begin.\n", (unsigned int)(ctx->orig - ctx->module_base));
+    LOGD("func 0x%x call begin.\n", (unsigned int)(ctx->orig - ctx->module_base));
+    LOGD("store addr: 0x%x .\n", (unsigned int)(ctx->store));
 }
 
 void post_hook_arm(int p0, int p1, int p2, int p3, int r0, int r1, int r2, int r3, int lr, int eph)
 {
     LOGD("post_hook_arm\n");
     struct hook_t* ctx = (struct hook_t*)eph;
-    //LOGD("func 0x%x call end.\n", (unsigned int)(ctx->orig - ctx->module_base));
+    LOGD("func 0x%x call end.\n", (unsigned int)(ctx->orig - ctx->module_base));
 }
 
 __attribute__((naked)) int hook_arm(int p0,int p1,int p2,int p3,int eph, int p4, int p5, int p6, int p7, int p8, int p9, int p10, int p11, int p12, int p13, int p14, int p15)
@@ -27,7 +28,6 @@ __attribute__((naked)) int hook_arm(int p0,int p1,int p2,int p3,int eph, int p4,
     );
 
 
-    /*
     //call orig function
     __asm __volatile (
         "push   {r0-r12, lr}\n"
@@ -56,11 +56,12 @@ __attribute__((naked)) int hook_arm(int p0,int p1,int p2,int p3,int eph, int p4,
         "ldr    r4, %[p4]\n"
         "push   {r4}\n"
         "ldr    r4, %[p_eph]\n"
-        "push   {r4}\n"
+        //"push   {r4}\n"
 
-        "add    r4, r4, #0xC\n"   //eph->store
+        "add    r4, r4, #28\n"   //eph->store
         "blx    r4\n"
 
+        "add    sp, sp, #48\n"  //pop all parameters
         "pop    {r0-r12, lr}\n"
         : 
         : [p_eph] "g" (eph), [p15] "g" (p15), 
@@ -72,7 +73,6 @@ __attribute__((naked)) int hook_arm(int p0,int p1,int p2,int p3,int eph, int p4,
         [p4] "g" (p4)
     );
 
-    */
     //call post_hook_arm
     __asm __volatile (
         "push   {r0-r3, lr}\n"
