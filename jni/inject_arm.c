@@ -31,38 +31,41 @@ __attribute__((naked)) int hook_arm(int p0,int p1,int p2,int p3,int eph, int p4,
     //call orig function
     __asm __volatile (
         "push   {r0-r12, lr}\n"
-        "ldr    r4, %[p15]\n"
-        "push   {r4}\n"
-        "ldr    r4, %[p14]\n"
-        "push   {r4}\n"
-        "ldr    r4, %[p13]\n"
-        "push   {r4}\n"
-        "ldr    r4, %[p12]\n"
-        "push   {r4}\n"
-        "ldr    r4, %[p11]\n"
-        "push   {r4}\n"
-        "ldr    r4, %[p10]\n"
-        "push   {r4}\n"
-        "ldr    r4, %[p9]\n"
-        "push   {r4}\n"
-        "ldr    r4, %[p8]\n"
-        "push   {r4}\n"
-        "ldr    r4, %[p7]\n"
-        "push   {r4}\n"
-        "ldr    r4, %[p6]\n"
-        "push   {r4}\n"
-        "ldr    r4, %[p5]\n"
-        "push   {r4}\n"
-        "ldr    r4, %[p4]\n"
-        "push   {r4}\n"
-        "ldr    r4, %[p_eph]\n"
-        //"push   {r4}\n"
+        "ldr    r4, [sp, #104]\n" //p15
+        "str    r4, [sp, #-4]\n"
+        "ldr    r4, [sp, #100]\n" //p14
+        "str    r4, [sp, #-8]\n"
+        "ldr    r4, [sp, #96]\n" //p13
+        "str    r4, [sp, #-12]\n"
+        "ldr    r4, [sp, #92]\n" //p12
+        "str    r4, [sp, #-16]\n"
+        "ldr    r4, [sp, #88]\n" //p11
+        "str    r4, [sp, #-20]\n"
+        "ldr    r4, [sp, #84]\n" //p10
+        "str    r4, [sp, #-24]\n"
+        "ldr    r4, [sp, #80]\n" //p9
+        "str    r4, [sp, #-28]\n"
+        "ldr    r4, [sp, #76]\n" //p8
+        "str    r4, [sp, #-32]\n"
+        "ldr    r4, [sp, #72]\n" //p7
+        "str    r4, [sp, #-36]\n"
+        "ldr    r4, [sp, #68]\n" //p6
+        "str    r4, [sp, #-40]\n"
+        "ldr    r4, [sp, #64]\n" //p5
+        "str    r4, [sp, #-44]\n"
+        "ldr    r4, [sp, #60]\n" //p4, sp+14*4+4
+        "str    r4, [sp, #-48]\n"
+
+        "ldr    r4, [sp, #56]\n" //eph
+
+        "sub    sp, sp, #48\n"  //make sp at top of 12 params
 
         "add    r4, r4, #28\n"   //eph->store
         "blx    r4\n"
 
-        "add    sp, sp, #48\n"  //pop all parameters
+        "add    sp, sp, #48\n"  //pop all parameters (p4~p15)
         "pop    {r0-r12, lr}\n"
+        /*
         : 
         : [p_eph] "g" (eph), [p15] "g" (p15), 
         [p14] "g" (p14), [p13] "g" (p13), 
@@ -71,6 +74,7 @@ __attribute__((naked)) int hook_arm(int p0,int p1,int p2,int p3,int eph, int p4,
         [p8] "g" (p8), [p7] "g" (p7),
         [p6] "g" (p6), [p5] "g" (p5),
         [p4] "g" (p4)
+        */
     );
 
     //call post_hook_arm

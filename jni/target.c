@@ -21,7 +21,7 @@ void test2(char* str)
 int main()
 {
     volatile int i = 0;
-    //scanf("%d", &i);
+    scanf("%d", &i);
     //char fname[40];
     struct stat buf;
     while(1)

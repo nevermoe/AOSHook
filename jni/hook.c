@@ -112,8 +112,10 @@ static int _hook(struct hook_t *h, unsigned int addr, void *hook_thumb, void *ho
         h->store[7] = 0xe51ff004;   //LDR pc, [pc, #-4]
         h->store[8] = h->orig + 28; //jump over first 7 instructions
 
-        mprotect((void*)h->store, sizeof(h->store), 
+        //addr must align to page (4kb)
+        int ret = mprotect((void*)((int)h->store & 0xFFFFE000), 0x1000, 
                 PROT_READ|PROT_WRITE|PROT_EXEC);
+        LOGD("mprotect result: %d\n", ret);
 
         for (i = 0; i < /*sizeof(h->jump)/sizeof(unsigned int)*/7; i++)
             ((unsigned int*)h->orig)[i] = h->jump[i];
