@@ -57,24 +57,26 @@ __attribute__((naked)) int hook_arm(int p0,int p1,int p2,int p3,int eph, int p4,
         "str    r4, [sp, #-48]\n"
 
         "ldr    r4, [sp, #56]\n" //eph
+        "ldr    r5, [r4, #144]\n"   //eph->thumb
 
         "sub    sp, sp, #48\n"  //make sp at top of 12 params
 
-        "add    r4, r4, #28\n"   //eph->store
-        "blx    r4\n"
+        "cmp    r5, #0\n"   //if is arm mode
+        "beq    arm_mode\n"
+
+        "thumb_mode:\n"
+            "add    r4, r4, #93\n"   //eph->storet+1
+            "b      call_orig\n"
+
+        "arm_mode:\n"
+            "add    r4, r4, #28\n"   //eph->store
+            "b      call_orig\n"
+
+        "call_orig:\n"
+            "blx    r4\n"
 
         "add    sp, sp, #48\n"  //pop all parameters (p4~p15)
         "pop    {r0-r12, lr}\n"
-        /*
-        : 
-        : [p_eph] "g" (eph), [p15] "g" (p15), 
-        [p14] "g" (p14), [p13] "g" (p13), 
-        [p12] "g" (p12), [p11] "g" (p11), 
-        [p10] "g" (p10), [p9] "g" (p9), 
-        [p8] "g" (p8), [p7] "g" (p7),
-        [p6] "g" (p6), [p5] "g" (p5),
-        [p4] "g" (p4)
-        */
     );
 
     //call post_hook_arm

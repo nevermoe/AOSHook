@@ -19,11 +19,11 @@
 struct hook_t {
     unsigned int jump[7];
     unsigned int store[9];
-    unsigned char jumpt[22];
-    unsigned char storet[38];
+    unsigned char jumpt[28];
+    unsigned char storet[42];
     unsigned int orig;
     unsigned int patch;
-    unsigned char thumb;
+    unsigned int thumb;
     unsigned int module_base;
     void *data;
 };

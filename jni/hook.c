@@ -113,11 +113,11 @@ static int _hook(struct hook_t *h, unsigned int addr, void *hook_thumb, void *ho
         h->store[8] = h->orig + 28; //jump over first 7 instructions
 
         //addr must align to page (4kb)
-        int ret = mprotect((void*)((int)h->store & 0xFFFFE000), 0x1000, 
+        int ret = mprotect((void*)((int)h->store & 0xFFFFF000), 0x1000, 
                 PROT_READ|PROT_WRITE|PROT_EXEC);
         LOGD("mprotect result: %d\n", ret);
 
-        for (i = 0; i < /*sizeof(h->jump)/sizeof(unsigned int)*/7; i++)
+        for (i = 0; i < 7; i++)
             ((unsigned int*)h->orig)[i] = h->jump[i];
     }
     else {
@@ -127,55 +127,54 @@ static int _hook(struct hook_t *h, unsigned int addr, void *hook_thumb, void *ho
             LOGD("warning hook is not thumb 0x%lx\n", (unsigned long)hook_thumb);
         }
         h->thumb = 1;
-        h->patch = (unsigned int)hook_thumb;
+        //h->patch = (unsigned int)hook_thumb;
+        h->patch = (unsigned int)hook_arm;
         h->orig = addr;
-        /*
-        h->jumpt[1] = 0xb4;
-        h->jumpt[0] = 0x60; // push {r5,r6}
-        h->jumpt[3] = 0xa5;
-        h->jumpt[2] = 0x03; // add r5, pc, #12
-        h->jumpt[5] = 0x68;
-        h->jumpt[4] = 0x2d; // ldr r5, [r5]
-        h->jumpt[7] = 0xb0;
-        h->jumpt[6] = 0x02; // add sp,sp,#8
-        h->jumpt[9] = 0xb4;
-        h->jumpt[8] = 0x20; // push {r5}
-        h->jumpt[11] = 0xb0;
-        h->jumpt[10] = 0x81; // sub sp,sp,#4
-        h->jumpt[13] = 0xbd;
-        h->jumpt[12] = 0x20; // pop {r5, pc}
-        h->jumpt[15] = 0x46;
-        h->jumpt[14] = 0xaf; // mov pc, r5 ; just to pad to 4 byte boundary
-        */
-        h->jumpt[1] = 0xb4;
-        h->jumpt[0] = 0x01; // push {r0}
-        h->jumpt[3] = 0xb4;
-        h->jumpt[2] = 0x60; // push {r5,r6}
-        h->jumpt[5] = 0xa5;
-        h->jumpt[4] = 0x03; // add r5, pc, #12
-        h->jumpt[7] = 0x68;
-        h->jumpt[6] = 0x2d; // ldr r5, [r5]
-        h->jumpt[9] = 0xb0;
-        h->jumpt[8] = 0x02; // add sp,sp,#8
-        h->jumpt[11] = 0xb4;
-        h->jumpt[10] = 0x20; // push {r5}
-        h->jumpt[13] = 0xb0;
-        h->jumpt[12] = 0x81; // sub sp,sp,#4
-        h->jumpt[15] = 0xbd;
-        h->jumpt[14] = 0x20; // pop {r5, pc}
+
+        //str r0, [sp, #-8]
+        h->jumpt[0] = 0x4d; 
+        h->jumpt[1] = 0xf8; 
+        h->jumpt[2] = 0x08; 
+        h->jumpt[3] = 0x0c; 
+        //ldr r0, [pc, #12];
+        h->jumpt[4] = 0x03; 
+        h->jumpt[5] = 0x48; 
+        //push {r0}
+        h->jumpt[6] = 0x01; 
+        h->jumpt[7] = 0xb4; 
+        //ldr r0, [sp, #-4]
+        h->jumpt[8] = 0x5d; 
+        h->jumpt[9] = 0xf8; 
+        h->jumpt[10] = 0x04; 
+        h->jumpt[11] = 0x0c; 
+        //ldr pc, [pc, #8]
+        h->jumpt[12] = 0xdf; 
+        h->jumpt[13] = 0xf8; 
+        h->jumpt[14] = 0x08; 
+        h->jumpt[15] = 0xf0; 
+
 
         unsigned int orig = h->orig - 1; // sub 1 to get real address
         //note in thumb mode, the pc always pre-fetch 4 bytes only after one 4 bytes are all consumed.
-        if ((orig + 2) % 4 == 2) {
-            //if addr of 'add r5, pc, #12' is aligned to 2 byte, then 'add r5, pc, #12' makes r5 points to offset 16
-            memcpy(&h->jumpt[16], (unsigned char*)&h->patch, sizeof(unsigned int));
+        if ((orig + 4) % 4 == 2) {
+            //if addr of 'ldr r0, [pc, #12]' is aligned to 2 byte, then 'ldr r0, [pc, #12]' makes pc points to offset 4 + 14
+            ((unsigned int*)h->jumpt)[18] = (unsigned int)h->patch; 
         }
         else {
-            //if orig addr is aligned to 4 byte, then 'add r5, pc, #12' makes r5 points to offset 18
-            memcpy(&h->jumpt[18], (unsigned char*)&h->patch, sizeof(unsigned int));
+            //if orig addr is aligned to 4 byte, then 'ldr r0, [pc, #12]' makes pc points to offset 4 + 16
+            ((unsigned int*)h->jumpt)[20] = (unsigned int)h->patch; 
         }
 
-        ((unsigned int*)h->storet)[0] = 0x5fffe8bd; //pop {r0-r12,lr}
+        if ((orig + 12) % 4 == 2) {
+            //if addr of 'ldr pc, [pc, #8]' is aligned to 2 byte, then 'ldr pc, [pc, #8]' makes pc points to offset 12 + 10
+            ((unsigned int*)h->jumpt)[22] = (unsigned int)h; 
+        }
+        else {
+            //if orig addr is aligned to 4 byte, then 'ldr pc, [pc, #8]' makes pc points to offset 12 + 12
+            ((unsigned int*)h->jumpt)[24] = (unsigned int)h; 
+        }
+
+        //((unsigned int*)h->storet)[0] = 0x5fffe8bd; //pop {r0-r12,lr}
 
         for (i = 0; ; ) {
             //check if the last 2 bytes in the overwritten 22 bytes contains 32 bit thumb code
@@ -183,33 +182,38 @@ static int _hook(struct hook_t *h, unsigned int addr, void *hook_thumb, void *ho
             unsigned char bits_15_11 = ((unsigned char*)orig)[i+1] & 0xf8; //0xf8 == 0b 1111 1000
             if( bits_15_11 == 0xe8 || bits_15_11 == 0xf0 || bits_15_11 == 0xf8) {
                 //is 32-bit thumb instruction
-                h->storet[i+4] = ((unsigned char*)orig)[i]; i++;
-                h->storet[i+4] = ((unsigned char*)orig)[i]; i++;
-                h->storet[i+4] = ((unsigned char*)orig)[i]; i++;
-                h->storet[i+4] = ((unsigned char*)orig)[i]; i++;
+                h->storet[i] = ((unsigned char*)orig)[i]; i++;
+                h->storet[i] = ((unsigned char*)orig)[i]; i++;
+                h->storet[i] = ((unsigned char*)orig)[i]; i++;
+                h->storet[i] = ((unsigned char*)orig)[i]; i++;
             }
             else {
                 //is 16-bit thumb instruction
-                h->storet[i+4] = ((unsigned char*)orig)[i]; i++;
-                h->storet[i+4] = ((unsigned char*)orig)[i]; i++;
+                h->storet[i] = ((unsigned char*)orig)[i]; i++;
+                h->storet[i] = ((unsigned char*)orig)[i]; i++;
             }
-            if(i >= 22)
+            if(i >= 28)
                 break;
         }
 
-        //now i = 22 or 24
-        ((unsigned int*)h->storet)[4+i] = 0xf004f8df;   //ldr pc, [pc, #4]
+        //now i = 28 or 30
+        ((unsigned int*)h->storet)[i] = 0xf004f8df;   //ldr pc, [pc, #4]
 
-        if ((unsigned int)(h->storet + i + 4) % 4 == 2) {
-            ((unsigned int*)(h->storet))[i+4/*[pc,#4]*/+2/*prefetch*/] = (orig + i);
+        if ((unsigned int)(h->storet + i) % 4 == 2) {
+            ((unsigned int*)(h->storet))[i+4/*[pc,#4]*/+2/*prefetch*/] = (h->orig + i);
         }
         else {
-            ((unsigned int*)(h->storet))[i+4/*[pc,#4]*/+4/*prefetch*/] = (orig + i);
+            ((unsigned int*)(h->storet))[i+4/*[pc,#4]*/+4/*prefetch*/] = (h->orig + i);
         }
         
-        for (i = 0; i < sizeof(h->jumpt); i++) {
+        for (i = 0; i < 28; i++) {
             ((unsigned char*)orig)[i] = h->jumpt[i];
         }
+        
+        //addr must align to page (4kb)
+        int ret = mprotect((void*)((int)h->storet & 0xFFFFF000), 0x1000, 
+                PROT_READ|PROT_WRITE|PROT_EXEC);
+        LOGD("mprotect result: %d\n", ret);
     }
 
     //FIXME: cacheflush	

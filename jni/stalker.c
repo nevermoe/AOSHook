@@ -264,7 +264,6 @@ int main(int argc, char *argv[])
     inject_so(pid, so_path, init_func, parameter);
 
 
-    /*
     //for debug
     wait(&status);
     struct pt_regs regs;
@@ -279,8 +278,8 @@ int main(int argc, char *argv[])
     
     while(1) {
     }
-    */
 
+    wait(&status);
     ptrace(PTRACE_DETACH, pid, NULL, 0);
     
     return 0;
