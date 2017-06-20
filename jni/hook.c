@@ -1,5 +1,6 @@
 #include "hook.h"
 
+
 void get_module_range(pid_t pid, const char* module_name, long* start_addr, long* end_addr)
 {
     FILE *fp;
@@ -158,20 +159,21 @@ static int _hook(struct hook_t *h, unsigned int addr, void *hook_thumb, void *ho
         //note in thumb mode, the pc always pre-fetch 4 bytes only after one 4 bytes are all consumed.
         if ((orig + 4) % 4 == 2) {
             //if addr of 'ldr r0, [pc, #12]' is aligned to 2 byte, then 'ldr r0, [pc, #12]' makes pc points to offset 4 + 14
-            ((unsigned int*)h->jumpt)[18] = (unsigned int)h->patch; 
+            memcpy(&h->jumpt[18], (unsigned char*)&h, sizeof(unsigned int));
         }
         else {
             //if orig addr is aligned to 4 byte, then 'ldr r0, [pc, #12]' makes pc points to offset 4 + 16
-            ((unsigned int*)h->jumpt)[20] = (unsigned int)h->patch; 
+            memcpy(&h->jumpt[20], (unsigned char*)&h, sizeof(unsigned int));
         }
 
         if ((orig + 12) % 4 == 2) {
             //if addr of 'ldr pc, [pc, #8]' is aligned to 2 byte, then 'ldr pc, [pc, #8]' makes pc points to offset 12 + 10
-            ((unsigned int*)h->jumpt)[22] = (unsigned int)h; 
+            memcpy(&h->jumpt[22], (unsigned char*)&h->patch, sizeof(unsigned int));
+
         }
         else {
             //if orig addr is aligned to 4 byte, then 'ldr pc, [pc, #8]' makes pc points to offset 12 + 12
-            ((unsigned int*)h->jumpt)[24] = (unsigned int)h; 
+            memcpy(&h->jumpt[24], (unsigned char*)&h->patch, sizeof(unsigned int));
         }
 
         //((unsigned int*)h->storet)[0] = 0x5fffe8bd; //pop {r0-r12,lr}
@@ -197,13 +199,21 @@ static int _hook(struct hook_t *h, unsigned int addr, void *hook_thumb, void *ho
         }
 
         //now i = 28 or 30
-        ((unsigned int*)h->storet)[i] = 0xf004f8df;   //ldr pc, [pc, #4]
+        //ldr pc, [pc, #4]
+        h->storet[i] = 0xdf;
+        h->storet[i+1] = 0xf8;
+        h->storet[i+2] = 0x04;
+        h->storet[i+3] = 0xf0;
 
         if ((unsigned int)(h->storet + i) % 4 == 2) {
-            ((unsigned int*)(h->storet))[i+4/*[pc,#4]*/+2/*prefetch*/] = (h->orig + i);
+            //(unsigned int)(h->storet[i+4/*[pc,#4]*/+2/*prefetch*/]) = (h->orig + i);
+            unsigned int ret_addr = h->orig + i;
+            memcpy(&h->storet[i+4+2], (unsigned char*)&ret_addr, sizeof(unsigned int));
         }
         else {
-            ((unsigned int*)(h->storet))[i+4/*[pc,#4]*/+4/*prefetch*/] = (h->orig + i);
+            //(unsigned int)(h->storet[i+4/*[pc,#4]*/+4/*prefetch*/]) = (h->orig + i);
+            unsigned int ret_addr = h->orig + i;
+            memcpy(&h->storet[i+4+4], (unsigned char*)&ret_addr, sizeof(unsigned int));
         }
         
         for (i = 0; i < 28; i++) {
