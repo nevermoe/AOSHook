@@ -18,6 +18,15 @@ include $(BUILD_STATIC_LIBRARY)
 ###########################################################
 
 include $(CLEAR_VARS)
+LOCAL_MODULE    := relocate
+LOCAL_SRC_FILES := relocate.c
+
+include $(BUILD_STATIC_LIBRARY)
+
+###########################################################
+
+
+include $(CLEAR_VARS)
 LOCAL_MODULE    := stalker
 LOCAL_SRC_FILES := stalker.c
 LOCAL_STATIC_LIBRARIES := hook
@@ -29,9 +38,9 @@ include $(BUILD_EXECUTABLE)
 include $(CLEAR_VARS)
 LOCAL_DISABLE_FATAL_LINKER_WARNINGS := true
 LOCAL_MODULE    := inject
-LOCAL_SRC_FILES := inject.c inject_arm.c.arm
+LOCAL_SRC_FILES := inject.c #inject_arm.c.arm
 LOCAL_LDLIBS := -llog 
-LOCAL_STATIC_LIBRARIES := hook
+LOCAL_STATIC_LIBRARIES := hook relocate
 
 include $(BUILD_SHARED_LIBRARY)
 

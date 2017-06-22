@@ -1,3 +1,6 @@
+#ifndef __HOOK_H__
+#define __HOOK_H__
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <asm/user.h>
@@ -15,28 +18,39 @@
 #define LOG_TAG "MY_HOOK"
 #define LOGD(fmt, args...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, fmt, ##args)
 
+#define SET_BIT0(addr)      (addr | 1)
+#define CLEAR_BIT0(addr)    (addr & 0xFFFFFFFE)
+#define TEST_BIT0(addr)     (addr & 1)
+
+#define ORIG_INS_SIZE           3
+#define TRAMPOLINE_INS_SIZE     10
+#define ORIG_BOUND_SIZE         4
+#define TRAMPOLINE_BOUND_SIZE   20
 
 struct hook_t {
-    unsigned int jump[7];
-    unsigned int store[9];
-    unsigned char jumpt[28];
-    unsigned char storet[42];
-    unsigned int orig;
-    unsigned int patch;
+    uint32_t target_addr;
+    uint32_t new_addr;
+    uint32_t orig_instructions[ORIG_INS_SIZE];
+    uint32_t trampoline_instructions[TRAMPOLINE_INS_SIZE];
+    int orig_boundaries[ORIG_BOUND_SIZE];
+    int trampoline_boundaries[TRAMPOLINE_BOUND_SIZE];
+    uint32_t *proto;
+    int count;
+    int length;
     unsigned int thumb;
     unsigned int module_base;
-    void *data;
 };
 
 void get_module_range(pid_t pid, const char* module_name, long* start_addr, long* end_addr);
 
-int hook_by_addr(struct hook_t *h, char* module_name, unsigned int addr, void *hook_thumb, void*hook_arm);
-int hook_by_name(struct hook_t *h, char* module_name, unsigned char* func_name, void *hook_thumb, void *hook_arm);
+int hook_by_addr(struct hook_t *h, char* module_name, unsigned int addr, void *hook_func);
+int hook_by_name(struct hook_t *h, char* module_name, unsigned char* func_name, void *hook_func);
 
-static int _hook(struct hook_t *h, unsigned int addr, void *hook_thumb, void *hook_arm);
+static int _hook(struct hook_t *h, unsigned int addr, void *hook_func);
 
 void inline hook_cacheflush(unsigned int begin, unsigned int end);
 
 void hook_unset_jump(struct hook_t *h);
 void hook_set_jump(struct hook_t *h);
 
+#endif
