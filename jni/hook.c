@@ -93,7 +93,7 @@ static int _hook(struct hook_t *h, unsigned int addr, void *hook_func)
     //modify function entry point
     if (!TEST_BIT0(h->target_addr)) {
         //ARM mode
-        LOGD("using ARM mode 0x%lx\n", (unsigned long)hook_func);
+        //LOGD("using ARM mode 0x%lx\n", (unsigned long)hook_func);
         h->thumb = 0;
         h->proto = h->trampoline_instructions;
         ((uint32_t *)h->target_addr)[0] = 0xe51ff004; // LDR pc, [pc, #-4]
@@ -101,7 +101,7 @@ static int _hook(struct hook_t *h, unsigned int addr, void *hook_func)
     }
     else {
         //thumb mode
-        LOGD("using thumb mode 0x%lx\n", (unsigned long)hook_func);
+        //LOGD("using thumb mode 0x%lx\n", (unsigned long)hook_func);
 
         int i = 0;
         if (CLEAR_BIT0(h->target_addr) % 4 != 0) {
@@ -124,7 +124,7 @@ static int _hook(struct hook_t *h, unsigned int addr, void *hook_func)
     //addr must align to page (4kb)
     int ret = mprotect((void*)((int)h->trampoline_instructions & 0xFFFFF000), 0x1000, 
             PROT_READ|PROT_WRITE|PROT_EXEC);
-    LOGD("mprotect result: %d\ttrampoline_addr: 0x%x\n", ret, (uint32_t)h->trampoline_instructions);
+    //LOGD("mprotect result: %d\ttrampoline_addr: 0x%x\n", ret, (uint32_t)h->trampoline_instructions);
 
 
 	return 0;

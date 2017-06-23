@@ -8,8 +8,12 @@ created time: 2015-01-17
 */
 
 #include "relocate.h"
+#include <android/log.h>
 
 #define ALIGN_PC(pc)	(pc & 0xFFFFFFFC)
+
+#define LOG_TAG "MY_HOOK"
+#define LOGD(fmt, args...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, fmt, ##args)
 
 enum INSTRUCTION_TYPE {
 	// B <label>
