@@ -17,6 +17,11 @@
 
 #define LOG_TAG "MY_HOOK"
 #define LOGD(fmt, args...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, fmt, ##args)
+#define LOGF(...) \
+        {FILE *fp = fopen("/data/local/tmp/hook.log", "a+"); if (fp) {\
+        fprintf(fp, __VA_ARGS__);\
+        fclose(fp);}}
+
 
 #define SET_BIT0(addr)      (addr | 1)
 #define CLEAR_BIT0(addr)    (addr & 0xFFFFFFFE)
@@ -41,7 +46,15 @@ struct hook_t {
     unsigned int module_base;
 };
 
-void get_module_range(pid_t pid, const char* module_name, long* start_addr, long* end_addr);
+enum hook_status {
+    HOOK_OK = 0,
+    //HOOK_ERROR_NOT_EXECUTABLE,
+    HOOK_ERROR_SO_NOT_FOUND,
+    HOOK_ERROR_MPROTECT_FAILED,
+    HOOK_ERROR_UNKNOWN
+};
+
+void get_module_range(pid_t pid, const char* module_name, uint32_t* start_addr, uint32_t* end_addr);
 
 int hook_by_addr(struct hook_t *h, char* module_name, unsigned int addr, void *hook_func);
 int hook_by_name(struct hook_t *h, char* module_name, unsigned char* func_name, void *hook_func);

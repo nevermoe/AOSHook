@@ -37,6 +37,9 @@ enum INSTRUCTION_TYPE {
     //if-then
     IT_THUMB16,
 
+    //dmb sy?
+    DMB_THUMB32,
+
 	// BLX <label>
 	BLX_THUMB32,
 	// BL <label>
@@ -118,6 +121,10 @@ static int getTypeInThumb32(uint32_t instruction)
 	if ((instruction & 0xF800D000) == 0xF000D000) {
 		return BL_THUMB32;
 	}
+    if ((instruction & 0xF3B08050) == 0xF3B08050) {
+        //FIXME
+        return DMB_THUMB32;
+    }
 	if ((instruction & 0xF800D000) == 0xF0008000) {
 		return B1_THUMB32;
 	}
@@ -139,6 +146,7 @@ static int getTypeInThumb32(uint32_t instruction)
 	if ((instruction & 0xFFFF00F0) == 0xE8DF0010) {
 		return TBH_THUMB32;
 	}
+
 	return UNDEFINE;
 }
 
@@ -192,7 +200,8 @@ static int relocateInstructionInThumb16(uint32_t pc, uint16_t instruction, uint1
 			x = (instruction & 0xFF) << 1;
 			top_bit = x >> 8;
 			imm32 = top_bit ? (x | (0xFFFFFFFF << 8)) : x;
-			value = pc + imm32;
+			//value = pc + imm32;//FIXME
+			value = (pc + imm32) | 0x1;
 			trampoline_instructions[idx++] = instruction & 0xFF00;
 			trampoline_instructions[idx++] = 0xE003;	// B PC, #6
 		}
@@ -200,7 +209,8 @@ static int relocateInstructionInThumb16(uint32_t pc, uint16_t instruction, uint1
 			x = (instruction & 0x7FF) << 1;
 			top_bit = x >> 11;
 			imm32 = top_bit ? (x | (0xFFFFFFFF << 11)) : x;
-			value = pc + imm32;
+			//value = pc + imm32;//FIXME
+			value = (pc + imm32) | 0x1;
 		}
 		else if (type == BX_THUMB16) {
 			value = pc;
@@ -265,7 +275,8 @@ static int relocateInstructionInThumb16(uint32_t pc, uint16_t instruction, uint1
 
 		nonzero = (instruction & 0x800) >> 11;
 		imm32 = ((instruction & 0x200) >> 3) | ((instruction & 0xF8) >> 2);
-		value = pc + imm32 + 1;
+		//value = pc + imm32 + 1;
+		value = (pc + imm32) | 0x1;
 
 		trampoline_instructions[0] = instruction & 0xFD07;
 		trampoline_instructions[1] = 0xE003;	// B PC, #6
@@ -563,13 +574,16 @@ static void relocateInstructionInArm(uint32_t target_addr, uint32_t *orig_instru
 					break;
 				}
 			}
-			
+			//ADD Rd, PC, Rm
 			trampoline_instructions[trampoline_pos++] = 0xE52D0004 | (r << 12);	// PUSH {Rr}
 			trampoline_instructions[trampoline_pos++] = 0xE59F0008 | (r << 12);	// LDR Rr, [PC, #8]
 			trampoline_instructions[trampoline_pos++] = (instruction & 0xFFF0FFFF) | (r << 16);
 			trampoline_instructions[trampoline_pos++] = 0xE49D0004 | (r << 12);	// POP {Rr}
 			trampoline_instructions[trampoline_pos++] = 0xE28FF000;	// ADD PC, PC
 			trampoline_instructions[trampoline_pos++] = pc;
+
+            //ADD   PC, R12, PC
+            //ADD   
 		}
 		else if (type == ADR1_ARM || type == ADR2_ARM || type == LDR_ARM || type == MOV_ARM) {
 			int r;

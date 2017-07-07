@@ -67,7 +67,7 @@ void putdata(pid_t child, long addr,
 
 long get_remote_addr(pid_t target_pid, const char* module_name, void* local_addr)
 {
-    long local_handle, remote_handle;
+    uint32_t local_handle, remote_handle;
 
     get_module_range(0, module_name, &local_handle, 0);
     get_module_range(target_pid, module_name, &remote_handle, 0);
@@ -113,7 +113,7 @@ int ptrace_call(pid_t pid, uint32_t addr, long *params, uint32_t num_params, str
     }
 
     int status = 0;
-    wait(&status);
+    waitpid(pid, &status, WUNTRACED);
     /*
     while (status != 0xb7f) {
         if (ptrace_continue(pid) == -1) {
@@ -237,6 +237,65 @@ int inject_so(pid_t pid,char* so_path, char* function_name,char* parameter)
     }
 }
 
+static int get_all_tids(pid_t pid, pid_t *tids)
+{
+    char dir_path[32];
+    DIR *dir;
+    int i;
+    struct dirent *entry;
+    pid_t tid;
+
+    if (pid < 0) {
+        snprintf(dir_path, sizeof(dir_path), "/proc/self/task");
+    }
+    else {
+        snprintf(dir_path, sizeof(dir_path), "/proc/%d/task", pid);
+    }
+
+    dir = opendir(dir_path);
+    if (dir == NULL) {
+        return 0;
+    }
+
+    i = 0;
+    while((entry = readdir(dir)) != NULL) {
+        tid = atoi(entry->d_name);
+        if (tid != 0 && tid != getpid()) {
+            tids[i++] = tid;
+        }
+    }
+    closedir(dir);
+    return i;
+}
+
+int in_critical_zone(uint32_t pc, uint32_t subs_list[], int size) 
+{
+    int i = 0;
+    for (i = 0 ; i < size - 1 ; i++) {
+        if (pc > subs_list[i] && pc < subs_list[i+1]) {
+            if (subs_list[i] & 0x1 == 0x1) {
+                //thumb
+                int ahead = pc - (subs_list[i] & ~0x1);
+                if (ahead >= 12) {
+                    return 0;
+                }
+                else {
+                    return 1;
+                }
+            }
+            else {
+                int ahead = pc - subs_list[i];
+                if (ahead >= 8) {
+                    return 0;
+                }
+                else {
+                    return 1;
+                }
+            }
+        }
+    }
+    return 0;
+}
 
 int main(int argc, char *argv[])
 {
@@ -246,22 +305,60 @@ int main(int argc, char *argv[])
     }
                                                                                                      
     pid_t pid;
+    pid_t tids[1024];
     int status;
     pid = atoi(argv[1]);
+    uint32_t subs_list[100000];
+    int i = 0;
 
     char* so_path = "/data/local/tmp/libinject.so";
     char* init_func = "init_func";
     char* parameter = "init_func called, initializing";
+    char* subs_file_path = "/data/local/tmp/subs_list.txt";
+    char hook_so_name[100] = {'\0'};
+
+
+    FILE* subs_file = fopen(subs_file_path, "r");
+    if (!subs_list) {
+        printf("Open subs file failed\n");
+    }
+    fscanf(subs_file, "%s", hook_so_name);
+    while (fscanf(subs_file, "%x", &subs_list[i]) != EOF){
+        i++;
+    }
+    int size = i;
+    uint32_t module_base;
+    get_module_range(pid, hook_so_name, &module_base, 0);
+    printf("hook_so_name: %s\t module_base: %x\n", hook_so_name, module_base);
 
     
-    if(0 != ptrace(PTRACE_ATTACH, pid, NULL, NULL))
-    {
+    if(0 != ptrace(PTRACE_ATTACH, pid, NULL, NULL)) {
         printf("Trace process failed:%d.\n", errno);
         return 1;
     }
+    waitpid(pid, &status, WUNTRACED);
+
+    int count = get_all_tids(pid, tids);
+
+    for (i = 0; i < count; ++i) {
+        if (tids[i] == pid)
+            continue;
+        if (ptrace(PTRACE_ATTACH, tids[i], NULL, NULL) == 0) {
+            waitpid(tids[i], &status, WUNTRACED);
+            struct pt_regs regs;
+            ptrace(PTRACE_GETREGS, tids[i], NULL, &regs);
+            while ( (regs.ARM_pc > module_base) && 
+                    in_critical_zone(regs.ARM_pc - module_base, subs_list, size) ) {
+                ptrace(PTRACE_SINGLESTEP, tids[i], NULL, NULL);
+                waitpid(tids[i], &status, WUNTRACED);
+                ptrace(PTRACE_GETREGS, tids[i], NULL, &regs);
+                printf("tid [%d]: pc = 0x%x\t module_base = 0x%x\t pc2 = 0x%x\t lr=0x%x\n", tids[i], regs.ARM_pc, module_base, regs.ARM_pc - module_base, regs.ARM_lr);
+            }
+        }
+    }
     
-    wait(&status);
     inject_so(pid, so_path, init_func, parameter);
+
 
 
     /*
@@ -282,7 +379,11 @@ int main(int argc, char *argv[])
     */
 
     //wait(&status);
-    ptrace(PTRACE_DETACH, pid, NULL, 0);
+    for (i = 0; i < count; ++i) {
+        printf("releasing [%d]\n", tids[i]);
+        ptrace(PTRACE_CONT, tids[i], NULL, 0);
+        ptrace(PTRACE_DETACH, tids[i], NULL, 0);
+    }
     
     return 0;
 }

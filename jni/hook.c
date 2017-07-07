@@ -2,7 +2,7 @@
 #include "relocate.h"
 
 
-void get_module_range(pid_t pid, const char* module_name, long* start_addr, long* end_addr)
+void get_module_range(pid_t pid, const char* module_name, uint32_t* start_addr, uint32_t* end_addr)
 {
     FILE *fp;
     char *pch;
@@ -48,16 +48,25 @@ void get_module_range(pid_t pid, const char* module_name, long* start_addr, long
 
 int hook_by_name(struct hook_t *h, char* module_name, unsigned char* func_name, void *hook_func)
 {
+    int ret = 0;
     void *handle = dlopen(module_name, RTLD_NOW);
     void *func_addr = dlsym(handle, func_name);
 
     //get module range for self process
-    long module_start_addr = 0, module_end_addr = 0;
+    uint32_t module_start_addr = 0, module_end_addr = 0;
     get_module_range(0, module_name, &module_start_addr, &module_end_addr);
+    if(module_start_addr == 0 || module_start_addr == 0) {
+        LOGD("HOOK_ERROR_SO_NOT_FOUND\n");
+        return HOOK_ERROR_SO_NOT_FOUND;
+    }
 
     //mprotect
-    mprotect((void*)module_start_addr, module_end_addr - module_start_addr, 
+    ret = mprotect((void*)module_start_addr, module_end_addr - module_start_addr, 
             PROT_READ|PROT_WRITE|PROT_EXEC);
+    if (ret) {
+        LOGD("mprotect failed\n");
+        return HOOK_ERROR_MPROTECT_FAILED;
+    }
 
     h->module_base = module_start_addr;
 
@@ -68,13 +77,21 @@ int hook_by_addr(struct hook_t *h, char* module_name, unsigned int addr, void *h
 {
 	int i;
 	
-    long module_start_addr = 0, module_end_addr = 0;
+    uint32_t module_start_addr = 0, module_end_addr = 0;
     get_module_range(0, module_name, &module_start_addr, &module_end_addr);
+    if(module_start_addr == 0 || module_start_addr == 0) {
+        LOGD("HOOK_ERROR_SO_NOT_FOUND\n");
+        return HOOK_ERROR_SO_NOT_FOUND;
+    }
     unsigned int func_addr = module_start_addr + addr;
     
     //mprotect
-    mprotect((void*)module_start_addr, module_end_addr - module_start_addr, 
+    int ret = mprotect((void*)module_start_addr, module_end_addr - module_start_addr, 
             PROT_READ|PROT_WRITE|PROT_EXEC);
+    if (ret) {
+        LOGD("mprotect failed\n");
+        return HOOK_ERROR_MPROTECT_FAILED;
+    }
 
     h->module_base = module_start_addr;
 
@@ -84,6 +101,7 @@ int hook_by_addr(struct hook_t *h, char* module_name, unsigned int addr, void *h
 static int _hook(struct hook_t *h, unsigned int addr, void *hook_func)
 {
 	
+    //LOGD("[%d] hooking: 0x%x\n", getpid(), addr - h->module_base);
     h->new_addr = (unsigned int)hook_func;
     h->target_addr = addr;
 
@@ -124,10 +142,13 @@ static int _hook(struct hook_t *h, unsigned int addr, void *hook_func)
     //addr must align to page (4kb)
     int ret = mprotect((void*)((int)h->trampoline_instructions & 0xFFFFF000), 0x1000, 
             PROT_READ|PROT_WRITE|PROT_EXEC);
-    //LOGD("mprotect result: %d\ttrampoline_addr: 0x%x\n", ret, (uint32_t)h->trampoline_instructions);
 
+    if (ret != 0) {
+        LOGD("mprotect failed: %d\ttrampoline_addr: 0x%x\n", ret, (uint32_t)h->trampoline_instructions);
+        ret = HOOK_ERROR_MPROTECT_FAILED;
+    }
 
-	return 0;
+	return ret;
 
 }
 
