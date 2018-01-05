@@ -4,6 +4,7 @@
 
 const char *libc_path = "/system/lib/libc.so";
 const char *linker_path = "/system/bin/linker";
+const char *libdl_path = "/system/lib/libdl.so";
 
 const int long_size = sizeof(long);
 
@@ -86,9 +87,7 @@ int ptrace_call(pid_t pid, uint32_t addr, long *params, uint32_t num_params, str
         regs->uregs[i] = params[i];
     }
 
-    //
     // push remained params onto stack
-    //
     if (i < num_params) {
         regs->ARM_sp -= (num_params - i) * sizeof(long) ;
         putdata(pid, regs->ARM_sp, (char*)&params[i], (num_params - i) * sizeof(long));
@@ -113,7 +112,9 @@ int ptrace_call(pid_t pid, uint32_t addr, long *params, uint32_t num_params, str
     }
 
     int status = 0;
-    waitpid(pid, &status, WUNTRACED);
+    //waitpid(pid, &status, WUNTRACED);
+    waitpid(pid, &status, WCONTINUED);
+    printf("status: %u\n", status);
     /*
     while (status != 0xb7f) {
         if (ptrace_continue(pid) == -1) {
@@ -140,21 +141,31 @@ int inject_so(pid_t pid,char* so_path, char* function_name,char* parameter)
 
     //get remote addres
     printf("getting remote addres:\n");
-    /*
+#if 0
     mmap_addr = get_remote_addr(pid, libc_path, (void *)mmap);
     dlopen_addr = get_remote_addr( pid, libc_path, (void *)dlopen );
     dlsym_addr = get_remote_addr( pid, libc_path, (void *)dlsym );
     dlclose_addr = get_remote_addr( pid, libc_path, (void *)dlclose );
     dlerror_addr = get_remote_addr( pid, libc_path, (void *)dlerror );
-    */
+#endif
+#if 1
     mmap_addr = get_remote_addr(pid, libc_path, (void *)mmap);
     dlopen_addr = get_remote_addr( pid, linker_path, (void *)dlopen );
     dlsym_addr = get_remote_addr( pid, linker_path, (void *)dlsym );
     dlclose_addr = get_remote_addr( pid, linker_path, (void *)dlclose );
     dlerror_addr = get_remote_addr( pid, linker_path, (void *)dlerror );
+#endif
+
+#if 0
+    mmap_addr = get_remote_addr(pid, libc_path, (void *)mmap);
+    dlopen_addr = get_remote_addr( pid, libdl_path, (void *)dlopen );
+    dlsym_addr = get_remote_addr( pid, libdl_path, (void *)dlsym );
+    dlclose_addr = get_remote_addr( pid, libdl_path, (void *)dlclose );
+    dlerror_addr = get_remote_addr( pid, libdl_path, (void *)dlerror );
+#endif
     
-    printf("mmap_addr=%p dlopen_addr=%p dlsym_addr=%p dlclose_addr=%p\n",
-    (void*)mmap_addr,(void*)dlopen_addr,(void*)dlsym_addr,(void*)dlclose_addr);
+    printf("mmap_addr=%p dlopen_addr=%p dlsym_addr=%p dlclose_addr=%p dlerror_addr=%p\n",
+    (void*)mmap_addr,(void*)dlopen_addr,(void*)dlsym_addr,(void*)dlclose_addr, (void*)dlerror_addr);
     
 
     //mmap
@@ -172,15 +183,15 @@ int inject_so(pid_t pid,char* so_path, char* function_name,char* parameter)
     long map_base = regs.ARM_r0;
     printf("map_base = %p\n", (void*)map_base);
 
-    /*
+#if 0
     //dlerror
-    printf("calling dlerror()");
+    printf("calling dlerror()\n");
     ptrace_call(pid, dlerror_addr, parameters, 0, &regs);
     ptrace(PTRACE_GETREGS, pid, NULL, &regs);
     
     long error_addr = regs.ARM_r0;
     printf("before, error = %s\n",(char*) error_addr);
-    */
+#endif
 
     //dlopen
     //printf("save so_path = %s to map_base = %p\n", so_path, (void*)map_base);
@@ -194,17 +205,17 @@ int inject_so(pid_t pid,char* so_path, char* function_name,char* parameter)
     
     long handle = regs.ARM_r0;
     
-    //printf("handle = %p\n",(void*) handle);
+    printf("handle = %p\n",(void*) handle);
 
-    /*
+#if 0
     //dlerror
-    printf("calling dlerror()");
+    printf("calling dlerror()\n");
     ptrace_call(pid, dlerror_addr, parameters, 0, &regs);
     ptrace(PTRACE_GETREGS, pid, NULL, &regs);
     
     error_addr = regs.ARM_r0;
     printf("after error = %s\n",(char*) error_addr);
-    */
+#endif
 
     //dlsym
     //printf("save function_name = %s to map_base = %p\n", function_name, (void*)map_base);
