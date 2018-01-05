@@ -271,35 +271,6 @@ static int get_all_tids(pid_t pid, pid_t *tids)
     return i;
 }
 
-int in_critical_zone(uint32_t pc, uint32_t subs_list[], int size) 
-{
-    int i = 0;
-    for (i = 0 ; i < size - 1 ; i++) {
-        if (pc > subs_list[i] && pc < subs_list[i+1]) {
-            if (subs_list[i] & 0x1 == 0x1) {
-                //thumb
-                int ahead = pc - (subs_list[i] & ~0x1);
-                if (ahead >= 12) {
-                    return 0;
-                }
-                else {
-                    return 1;
-                }
-            }
-            else {
-                int ahead = pc - subs_list[i];
-                if (ahead >= 8) {
-                    return 0;
-                }
-                else {
-                    return 1;
-                }
-            }
-        }
-    }
-    return 0;
-}
-
 int main(int argc, char *argv[])
 {
     if(argc != 2) {
@@ -317,24 +288,8 @@ int main(int argc, char *argv[])
     char* so_path = "/data/local/tmp/libinject.so";
     char* init_func = "init_func";
     char* parameter = "init_func called, initializing";
-    char* subs_file_path = "/data/local/tmp/subs_list.txt";
-    char hook_so_name[100] = {'\0'};
 
 
-    FILE* subs_file = fopen(subs_file_path, "r");
-    if (!subs_list) {
-        printf("Open subs file failed\n");
-    }
-    fscanf(subs_file, "%s", hook_so_name);
-    while (fscanf(subs_file, "%x", &subs_list[i]) != EOF){
-        i++;
-    }
-    int size = i;
-    uint32_t module_base;
-    get_module_range(pid, hook_so_name, &module_base, 0);
-    printf("hook_so_name: %s\t module_base: %x\n", hook_so_name, module_base);
-
-    
     if(0 != ptrace(PTRACE_ATTACH, pid, NULL, NULL)) {
         printf("Trace process failed:%d.\n", errno);
         return 1;
@@ -350,13 +305,6 @@ int main(int argc, char *argv[])
             waitpid(tids[i], &status, WUNTRACED);
             struct pt_regs regs;
             ptrace(PTRACE_GETREGS, tids[i], NULL, &regs);
-            while ( (regs.ARM_pc > module_base) && 
-                    in_critical_zone(regs.ARM_pc - module_base, subs_list, size) ) {
-                ptrace(PTRACE_SINGLESTEP, tids[i], NULL, NULL);
-                waitpid(tids[i], &status, WUNTRACED);
-                ptrace(PTRACE_GETREGS, tids[i], NULL, &regs);
-                printf("tid [%d]: pc = 0x%x\t module_base = 0x%x\t pc2 = 0x%x\t lr=0x%x\n", tids[i], regs.ARM_pc, module_base, regs.ARM_pc - module_base, regs.ARM_lr);
-            }
         }
     }
     
