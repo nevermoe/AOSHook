@@ -27,6 +27,9 @@ include $(BUILD_STATIC_LIBRARY)
 
 
 include $(CLEAR_VARS)
+LOCAL_CFLAGS += -fPIE
+LOCAL_LDFLAGS += -fPIE -pie
+
 LOCAL_MODULE    := stalker
 LOCAL_SRC_FILES := stalker.c
 LOCAL_STATIC_LIBRARIES := hook
