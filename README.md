@@ -1,5 +1,7 @@
 # AOSHook
 
+## This branch is OUTDATED!!! Please see: https://github.com/nevermoe/AOSHook/blob/Marshmallow/README.md
+
 A hook framework based on [Libiegou](https://github.com/zhengmin1989/TheSevenWeapons/tree/master/LiBieGou) and [adbi](https://github.com/crmulliner/adbi).
 
 What I have modifed is written in [this blog](https://www.nevermoe.com/?p=854#more-854).
