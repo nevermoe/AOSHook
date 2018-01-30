@@ -30,7 +30,7 @@ void get_module_range(pid_t pid, const char* module_name, uint32_t* start_addr, 
                 if (end_addr)
                     *end_addr = strtoul(pch, NULL, 16);
 
-                /*
+               /* 
                 if (*start_addr == 0x8000) {
                     *start_addr -= 0x8000;
 
@@ -38,6 +38,7 @@ void get_module_range(pid_t pid, const char* module_name, uint32_t* start_addr, 
                         *end_addr -= 0x8000;
                 }
                 */
+
                 break;
             }
         }

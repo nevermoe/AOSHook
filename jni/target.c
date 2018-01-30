@@ -8,8 +8,7 @@ int count = 0;
 void test1(int number)
 {
     char* str = "HelloW0rld!";
-    printf("1 %s %d\n",str,number);
-    printf("2 %s %d\n",str,number);
+    printf("%s %d\n",str,number);
 }
 
 void test2(char* str)
@@ -27,6 +26,7 @@ int main()
     while(1)
     {
         //test2("null");
+        //test1(i);
         i++;
         sleep(1);
         //sprintf(fname, "test.%d", i)+
